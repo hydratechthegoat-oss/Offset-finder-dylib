@@ -1,0 +1,18 @@
+name: Build Flowing Water Dylib
+on: [push]
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Compile Dylib
+        run: |
+          clang++ -dynamiclib -arch arm64 -isysroot $(xcrun --sdk iphoneos --show-sdk-path) \
+          src/main.mm -o flowing_water.dylib \
+          -framework Foundation -framework UIKit -lc++
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: FlowingWater-Dylib
+          path: flowing_water.dylib
