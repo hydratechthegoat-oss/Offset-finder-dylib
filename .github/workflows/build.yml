@@ -1,4 +1,4 @@
-name: Flowing Water Build
+name: Flowing Water Build & Patch
 on: [push]
 
 jobs:
@@ -8,25 +8,35 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Set up Xcode Path
-        run: sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
-
-      - name: Compile Flowing Water Dylib
+      - name: Compile Dylib
         run: |
           clang++ -dynamiclib -arch arm64 \
           -isysroot $(xcrun --sdk iphoneos --show-sdk-path) \
           -miphoneos-version-min=14.0 \
           -std=c++17 \
-          -stdlib=libc++ \
           src/main.mm -o flowing_water.dylib \
-          -framework Foundation -framework UIKit -framework CoreGraphics \
-          -I./src \
-          -O3 \
-          -Wall \
-          -fobjc-arc
+          -framework Foundation -framework UIKit -lc++ \
+          -fobjc-arc -O3
 
-      - name: Upload Build Artifact
+      - name: Patch IPA
+        run: |
+          # 1. Install the injection tool
+          brew install insert_dylib
+
+          # 2. Setup the IPA (Assuming you named it 'game.ipa' in your repo)
+          unzip game.ipa -d temp_folder
+          APP_NAME=$(ls temp_folder/Payload/)
+          BINARY_NAME="Roblox" # Change this if the game binary is named differently
+
+          # 3. Move dylib and inject
+          cp flowing_water.dylib "temp_folder/Payload/$APP_NAME/"
+          insert_dylib --inplace "@executable_path/flowing_water.dylib" "temp_folder/Payload/$APP_NAME/$BINARY_NAME"
+
+          # 4. Pack it back up
+          cd temp_folder && zip -r ../FlowingWater_Injected.ipa . && cd ..
+
+      - name: Upload Final IPA
         uses: actions/upload-artifact@v4
         with:
-          name: FlowingWater-Dylib
-          path: flowing_water.dylib
+          name: FlowingWater-Injected-App
+          path: FlowingWater_Injected.ipa
